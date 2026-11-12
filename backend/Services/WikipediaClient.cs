@@ -76,34 +76,50 @@ public partial class WikipediaClient
 
     static async Task<Document> GetWikipediaPage(string url)
     {
-        using var request = new HttpRequestMessage(HttpMethod.Get, url);
-        using var response = await WikipediaHttpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
-        response.EnsureSuccessStatusCode();
+        var request = new HttpRequestMessage(HttpMethod.Get, url);
+        const int maxRetries = 5;
+        Exception? lastException = null;
 
-        var json = await response.Content.ReadAsStringAsync();
-        var apiResponse = JsonSerializer.Deserialize<WikiApiResponse>(json, JsonOpts)
-                  ?? throw new InvalidOperationException("Failed to deserialize Wikipedia response.");
+        for (int attempt = 1; attempt <= maxRetries; attempt++)
+        {
+            try
+            {
+                using var response = await WikipediaHttpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
+                response.EnsureSuccessStatusCode();
 
-        var firstPage = apiResponse.Query?.Pages?.FirstOrDefault();
+                var json = await response.Content.ReadAsStringAsync();
+                var apiResponse = JsonSerializer.Deserialize<WikiApiResponse>(json, JsonOpts)
+                          ?? throw new InvalidOperationException("Failed to deserialize Wikipedia response.");
 
-        if (firstPage is null || firstPage.Missing is true)
-            throw new Exception($"Could not find a Wikipedia page for {url}");
+                var firstPage = apiResponse.Query?.Pages?.FirstOrDefault();
 
-        if (string.IsNullOrWhiteSpace(firstPage.Title) || string.IsNullOrWhiteSpace(firstPage.Extract))
-            throw new Exception($"Empty Wikipedia page returned for {url}");
+                if (firstPage is null || firstPage.Missing is true)
+                    throw new Exception($"Could not find a Wikipedia page for {url}");
 
-        var title = firstPage.Title!;
-        var content = firstPage.Extract!.Trim();
+                if (string.IsNullOrWhiteSpace(firstPage.Title) || string.IsNullOrWhiteSpace(firstPage.Extract))
+                    throw new Exception($"Empty Wikipedia page returned for {url}");
 
-        var id = Utils.ToUrlSafeId(title);
-        var pageUrl = $"https://en.wikipedia.org/wiki/{Uri.EscapeDataString(title.Replace(' ', '_'))}";
+                var title = firstPage.Title!;
+                var content = firstPage.Extract!.Trim();
 
-        return new Document(
-            Id: id,
-            Title: title,
-            Content: content,
-            PageUrl: pageUrl
-        );
+                var id = Utils.ToUrlSafeId(title);
+                var pageUrl = $"https://en.wikipedia.org/wiki/{Uri.EscapeDataString(title.Replace(' ', '_'))}";
+
+                return new Document(
+                    Id: id,
+                    Title: title,
+                    Content: content,
+                    PageUrl: pageUrl
+                );
+            }
+            catch (Exception ex) when (attempt < maxRetries)
+            {
+                lastException = ex;
+                await Task.Delay(10_000);
+            }
+        }
+
+        throw lastException ?? new Exception($"All {maxRetries} attempts to fetch Wikipedia page failed for {url}.");
     }
 
     public Task<Document> GetWikipediaPageForTitle(string title, bool full = false)

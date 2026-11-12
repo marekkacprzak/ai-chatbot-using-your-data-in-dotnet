@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Hosting;
 using Pinecone;
 using ChatBot.Services;
+using OpenAI;
 
 namespace ChatBot;
 
@@ -12,7 +13,6 @@ static class Startup
 {
     public static void ConfigureServices(WebApplicationBuilder builder)
     {
-        var openAiKey = builder.RequireEnv("OPENAI_API_KEY");
         var pineconeKey = builder.RequireEnv("PINECONE_API_KEY");
 
         builder.Services.AddCors(options =>
@@ -24,11 +24,18 @@ static class Startup
                     .AllowAnyMethod()
             );
         });
+        var clientOptions = new OpenAIClientOptions
+        {
+            Endpoint = new Uri("http://192.168.8.131:1234/v1")
+        };
 
-        builder.Services.AddSingleton<StringEmbeddingGenerator>(s => new OpenAI.Embeddings.EmbeddingClient(
-                model: "text-embedding-3-small",
-                apiKey: openAiKey
-            ).AsIEmbeddingGenerator());
+        var openAIClient = new OpenAIClient(
+            new System.ClientModel.ApiKeyCredential("lmstudio"),
+            clientOptions
+        );
+        builder.Services.AddSingleton<StringEmbeddingGenerator>(s => openAIClient
+            .GetEmbeddingClient("text-embedding-3-small")
+            .AsIEmbeddingGenerator());
 
         builder.Services.AddSingleton<IndexClient>(s => new PineconeClient(pineconeKey).Index("youtube-transcripts"));
 

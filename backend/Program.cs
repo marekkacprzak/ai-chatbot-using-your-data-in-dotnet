@@ -3,7 +3,7 @@ using ChatBot.Services;
 using Microsoft.Extensions.AI;
 
 var builder = WebApplication.CreateBuilder(args);
-Startup.ConfigureServices(builder);
+await Startup.ConfigureServices(builder);
 var app = builder.Build();
 
 app.UseCors("FrontendCors");

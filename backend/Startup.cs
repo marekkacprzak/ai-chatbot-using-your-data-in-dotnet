@@ -1,20 +1,14 @@
-using System;
 using Microsoft.Extensions.AI;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Hosting;
 using Pinecone;
 using ChatBot.Services;
-
+using OpenAI;
+using Index = Pinecone.Index;
 namespace ChatBot;
 
 static class Startup
 {
-    public static void ConfigureServices(WebApplicationBuilder builder)
+    public static async Task ConfigureServices(WebApplicationBuilder builder)
     {
-        var openAiKey = builder.RequireEnv("OPENAI_API_KEY");
-        var pineconeKey = builder.RequireEnv("PINECONE_API_KEY");
-
         builder.Services.AddCors(options =>
         {
             options.AddPolicy("FrontendCors", policy =>
@@ -25,12 +19,14 @@ static class Startup
             );
         });
 
-        builder.Services.AddSingleton<StringEmbeddingGenerator>(s => new OpenAI.Embeddings.EmbeddingClient(
-                model: "text-embedding-3-small",
-                apiKey: openAiKey
-            ).AsIEmbeddingGenerator());
+        var openAiClient = builder.GetLocalAiClient();
 
-        builder.Services.AddSingleton<IndexClient>(s => new PineconeClient(pineconeKey).Index("landmark-chunks"));
+        await builder.AddPineconeIndex();
+    
+        builder.Services.AddSingleton<StringEmbeddingGenerator>(s => 
+            openAiClient
+            .GetEmbeddingClient(builder.RequireEnv("LLMEmbedding"))
+            .AsIEmbeddingGenerator());
 
         builder.Services.AddSingleton<DocumentChunkStore>(s => new DocumentChunkStore());
 
@@ -44,9 +40,10 @@ static class Startup
         builder.Services.AddSingleton<IChatClient>(sp =>
          {
              var loggerFactory = sp.GetRequiredService<ILoggerFactory>();
-             var client = new OpenAI.Chat.ChatClient(
-                  "gpt-5-mini",
-                  openAiKey).AsIChatClient();
+
+             var client = openAiClient
+                 .GetChatClient(builder.RequireEnv("LLMModel"))
+                 .AsIChatClient();
 
              return new ChatClientBuilder(client)
                  .UseLogging(loggerFactory)
@@ -67,5 +64,58 @@ static class Startup
         builder.Services.AddSingleton<RagQuestionService>();
         builder.Services.AddSingleton<ArticleSplitter>();
         builder.Services.AddSingleton<PromptService>();
+    }
+
+    extension(WebApplicationBuilder builder)
+    {
+        private async Task AddPineconeIndex()
+        {
+            var pineconeKey = builder.RequireEnv("PINECONE_API_KEY");
+            var pinecone = new PineconeClient(pineconeKey);
+            var indexName = "landmark-chunks";
+
+
+            if (!((await pinecone.ListIndexesAsync()).Indexes?.Any(i => i.Name == indexName) ?? false))
+            {
+                // 2. Create a dense serverless index matching your vector dimensions
+                await pinecone.CreateIndexAsync(new CreateIndexRequest
+                {
+                    Name = indexName,
+                    Dimension = 768, // Must match the length of your float[] Values
+                    Metric = MetricType.Cosine,
+                    Spec = new ServerlessIndexSpec
+                    {
+                        Serverless = new ServerlessSpec
+                        {
+                            Cloud = ServerlessSpecCloud.Aws,
+                            Region = "us-east-1"
+                        }
+                    }
+                });
+                Index indexInfo;
+                do
+                {
+                    await Task.Delay(2000);
+                    indexInfo = await pinecone.DescribeIndexAsync(indexName);
+                } while (!indexInfo.Status.Ready);
+            }
+
+            builder.Services.AddSingleton<IndexClient>(s => pinecone.Index(indexName));
+        }
+
+        private OpenAIClient GetLocalAiClient()
+        {
+            var lmstudioApiUrl = builder.RequireEnv("LMSTUDIO_API_URL");
+            var localClientOptions = new OpenAIClientOptions
+            {
+                Endpoint = new Uri(lmstudioApiUrl)
+            };
+
+            var openAiClient = new OpenAIClient(
+                new System.ClientModel.ApiKeyCredential("lmstudio"),
+                localClientOptions
+            );
+            return openAiClient;
+        }
     }
 }
