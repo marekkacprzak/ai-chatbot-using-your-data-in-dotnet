@@ -23,13 +23,13 @@ public class IndexBuilder(
                         splitter.Chunk(page.Title, section.Content, page.PageUrl, section.Title))
                         .Take(25)
                         .ToImmutableList();
-
+            
             var stringsToEmbed = chunks.Select(c => $"{c.Title} > {c.Section}\n\n{c.Content}");
 
             // Makes a call to OpenAI to create an embedding from these strings
             var embeddings = await embeddingGenerator.GenerateAsync(
                 stringsToEmbed,
-                new EmbeddingGenerationOptions { Dimensions = 512 }
+                new EmbeddingGenerationOptions { Dimensions = 3584 }
             );
 
             var vectors = chunks.Select((chunk, index) => new Vector

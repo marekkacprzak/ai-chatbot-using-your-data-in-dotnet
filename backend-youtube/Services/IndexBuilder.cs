@@ -24,7 +24,7 @@ public class IndexBuilder(
 
             var embeddings = await embeddingGenerator.GenerateAsync(
                 stringsToEmbed,
-                new EmbeddingGenerationOptions { Dimensions = 512 }
+                new EmbeddingGenerationOptions { Dimensions = 3584 }
             );
 
             var vectors = chunks.Select((chunk, index) => new Vector

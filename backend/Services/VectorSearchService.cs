@@ -14,7 +14,7 @@ public class VectorSearchService(StringEmbeddingGenerator embeddingGenerator,
         var embeddings = await embeddingGenerator.GenerateAsync([query],
                 new Microsoft.Extensions.AI.EmbeddingGenerationOptions
                 {
-                    Dimensions = 768
+                    Dimensions = 3584
                 });
 
         var vector = embeddings[0].Vector.ToArray();

@@ -1,8 +1,4 @@
-using System;
 using Microsoft.Extensions.AI;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Hosting;
 using Pinecone;
 using ChatBot.Services;
 using OpenAI;
@@ -11,10 +7,8 @@ namespace ChatBot;
 
 static class Startup
 {
-    public static void ConfigureServices(WebApplicationBuilder builder)
+    public static async Task ConfigureServices(WebApplicationBuilder builder)
     {
-        var pineconeKey = builder.RequireEnv("PINECONE_API_KEY");
-
         builder.Services.AddCors(options =>
         {
             options.AddPolicy("FrontendCors", policy =>
@@ -24,20 +18,14 @@ static class Startup
                     .AllowAnyMethod()
             );
         });
-        var clientOptions = new OpenAIClientOptions
-        {
-            Endpoint = new Uri("http://192.168.8.131:1234/v1")
-        };
+        var openAiClient = builder.GetLocalAiClient();
 
-        var openAIClient = new OpenAIClient(
-            new System.ClientModel.ApiKeyCredential("lmstudio"),
-            clientOptions
-        );
-        builder.Services.AddSingleton<StringEmbeddingGenerator>(s => openAIClient
-            .GetEmbeddingClient("text-embedding-3-small")
+        builder.Services.AddSingleton<StringEmbeddingGenerator>(s => 
+            openAiClient
+            .GetEmbeddingClient(builder.RequireEnv("LLMEmbedding"))
             .AsIEmbeddingGenerator());
 
-        builder.Services.AddSingleton<IndexClient>(s => new PineconeClient(pineconeKey).Index("youtube-transcripts"));
+        await builder.AddPineconeIndex();
 
         builder.Services.AddSingleton<DocumentChunkStore>(s => new DocumentChunkStore());
 
@@ -51,9 +39,10 @@ static class Startup
         builder.Services.AddSingleton<IChatClient>(sp =>
          {
              var loggerFactory = sp.GetRequiredService<ILoggerFactory>();
-             var client = new OpenAI.Chat.ChatClient(
-                  "gpt-5-mini",
-                  openAiKey).AsIChatClient();
+
+             var client = openAiClient
+                 .GetChatClient(builder.RequireEnv("LLMModel"))
+                 .AsIChatClient();
 
              return new ChatClientBuilder(client)
                  .UseLogging(loggerFactory)
@@ -74,5 +63,58 @@ static class Startup
         builder.Services.AddSingleton<TranscriptSplitter>();
         builder.Services.AddSingleton<PromptService>();
 
+    }
+
+    extension(WebApplicationBuilder builder)
+    {
+        private async Task AddPineconeIndex()
+        {
+            var pineconeKey = builder.RequireEnv("PINECONE_API_KEY");
+            var pinecone = new PineconeClient(pineconeKey);
+            var indexName = "youtube-transcripts";
+
+
+            if (!((await pinecone.ListIndexesAsync()).Indexes?.Any(i => i.Name == indexName) ?? false))
+            {
+                // 2. Create a dense serverless index matching your vector dimensions
+                await pinecone.CreateIndexAsync(new CreateIndexRequest
+                {
+                    Name = indexName,
+                    Dimension = 3584, // Must match the length of your float[] Values
+                    Metric = MetricType.Cosine,
+                    Spec = new ServerlessIndexSpec
+                    {
+                        Serverless = new ServerlessSpec
+                        {
+                            Cloud = ServerlessSpecCloud.Aws,
+                            Region = "us-east-1"
+                        }
+                    }
+                });
+                Pinecone.Index indexInfo;
+                do
+                {
+                    await Task.Delay(2000);
+                    indexInfo = await pinecone.DescribeIndexAsync(indexName);
+                } while (!indexInfo.Status.Ready);
+            }
+
+            builder.Services.AddSingleton<IndexClient>(s => pinecone.Index(indexName));
+        }
+
+        private OpenAIClient GetLocalAiClient()
+        {
+            var lmstudioApiUrl = builder.RequireEnv("LMSTUDIO_API_URL");
+            var localClientOptions = new OpenAIClientOptions
+            {
+                Endpoint = new Uri(lmstudioApiUrl)
+            };
+
+            var openAiClient = new OpenAIClient(
+                new System.ClientModel.ApiKeyCredential("lmstudio"),
+                localClientOptions
+            );
+            return openAiClient;
+        }
     }
 }

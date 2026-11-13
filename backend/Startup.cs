@@ -72,7 +72,7 @@ static class Startup
         {
             var pineconeKey = builder.RequireEnv("PINECONE_API_KEY");
             var pinecone = new PineconeClient(pineconeKey);
-            var indexName = "landmark-chunks";
+            var indexName = "landmark-chunks-2";
 
 
             if (!((await pinecone.ListIndexesAsync()).Indexes?.Any(i => i.Name == indexName) ?? false))
@@ -81,7 +81,7 @@ static class Startup
                 await pinecone.CreateIndexAsync(new CreateIndexRequest
                 {
                     Name = indexName,
-                    Dimension = 768, // Must match the length of your float[] Values
+                    Dimension = 3584, // Must match the length of your float[] Values
                     Metric = MetricType.Cosine,
                     Spec = new ServerlessIndexSpec
                     {
