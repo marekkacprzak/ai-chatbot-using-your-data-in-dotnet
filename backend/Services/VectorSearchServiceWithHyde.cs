@@ -74,12 +74,12 @@ public class VectorSearchServiceWithHyde(
             Embedding = m.Values
         });
 
-        var ordered = articles.OrderByDescending(a => scoreById.GetValueOrDefault(a.Id, null)?.Score ?? 0f)
+        var ordered = articles.OrderByDescending(a => scoreById!.GetValueOrDefault(a.Id, null)?.Score ?? 0f)
                               .Take(k)
                               .Select(a => a with
                               {
-                                  Score = scoreById.GetValueOrDefault(a.Id, null)?.Score ?? 0f,
-                                  Embeding = scoreById.GetValueOrDefault(a.Id, null)?.Embedding?.ToArray()
+                                  Score = scoreById!.GetValueOrDefault(a.Id, null)?.Score ?? 0f,
+                                  Embeding = scoreById!.GetValueOrDefault(a.Id, null)?.Embedding?.ToArray()
                               })
                               .ToList();
 

@@ -1,3 +1,4 @@
+using System.Numerics.Tensors;
 using ChatBot.Models;
 using Microsoft.Extensions.AI;
 
@@ -44,11 +45,14 @@ public class RagQuestionService(
         var candidates = concatScoreAndEmbedingDictionary
             .Select(a=> new SearchHit(Id: a.Key, Score: a.Value.Score))
             .ToList();
-        
-        Func<string, string, double> docSim = (id1, id2) =>
-            HydeFusion.CosineSimilarity(concatScoreAndEmbedingDictionary[id1].Embeding!, concatScoreAndEmbedingDictionary[id2].Embeding!);
+
+        double DocSim(string id1, string id2) => 
+            TensorPrimitives.CosineSimilarity(
+                concatScoreAndEmbedingDictionary[id1].Embeding!, 
+                concatScoreAndEmbedingDictionary[id2].Embeding!);
+
         // Combine results using Maximal Marginal Relevance (MMR)
-        var mmrResults = HydeFusion.MaximalMarginalRelevance(candidates, docSim, 0.7f, 15);
+        var mmrResults = HydeFusion.MaximalMarginalRelevance(candidates, DocSim, 0.7f, 15);
         var mmrContentResults = mmrResults.Select(a => concatDocumentChunkDictionary[a.Id]).ToList();
         return  await AnswerQuestion(question, mmrContentResults);
     }

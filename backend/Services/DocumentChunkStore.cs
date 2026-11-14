@@ -31,7 +31,7 @@ public class DocumentChunkStore
 
     public List<DocumentChunk> GetDocumentChunks(IEnumerable<string> ids)
     {
-        var idList = ids?.Distinct().ToList() ?? [];
+        var idList = ids.Distinct().ToList() ?? [];
         if (idList.Count == 0) return [];
 
         using var conn = new SqliteConnection($"Data Source={DbFile}");

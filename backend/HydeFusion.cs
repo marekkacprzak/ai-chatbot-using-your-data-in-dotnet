@@ -1,7 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-
 public record SearchHit(string Id, double Score);
 
 public static class HydeFusion
@@ -47,7 +43,7 @@ public static class HydeFusion
         double lambda = 0.7,
         int topK = 5)
     {
-        if (candidates == null || candidates.Count == 0 || topK <= 0)
+        if (candidates.Count == 0 || topK <= 0)
             return new List<SearchHit>();
 
         // Work on a mutable pool of remaining items; we only need Id + query-sim
@@ -90,27 +86,5 @@ public static class HydeFusion
         }
 
         return selected;
-    }
-    
-    public static float CosineSimilarity(float[] vectorA, float[] vectorB)
-    {
-        if (vectorA.Length != vectorB.Length)
-            throw new ArgumentException("Wektory muszą mieć tę samą długość");
-
-        float dotProduct = 0;
-        float normA = 0;
-        float normB = 0;
-
-        for (int i = 0; i < vectorA.Length; i++)
-        {
-            dotProduct += vectorA[i] * vectorB[i];
-            normA += vectorA[i] * vectorA[i];
-            normB += vectorB[i] * vectorB[i];
-        }
-
-        float denominator = (float)(Math.Sqrt(normA) * Math.Sqrt(normB));
-        if (denominator == 0) return 0; // wektory zerowe
-
-        return dotProduct / denominator;
     }
 }
