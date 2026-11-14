@@ -21,7 +21,7 @@ public static class HydeFusion
             foreach (var hit in list)
             {
                 // RRF contribution for this list and rank
-                double contrib = 1.0 / (k + rank);
+                double contrib = 1.0 / (k + hit.Score);
 
                 if (scores.TryGetValue(hit.Id, out var existing))
                     scores[hit.Id] = existing + contrib;

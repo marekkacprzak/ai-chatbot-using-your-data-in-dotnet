@@ -13,10 +13,10 @@ public class RagQuestionService(
     public async Task<string> AnswerQuestion(string question)
     {
         // 1. Search using the original question (for baseline)
-        var searchResultsOriginal = await vectorSearch.FindTopKChunks(question, 5);
+        var searchResultsOriginal = await vectorSearch.FindTopKChunks(question, 15);
         
         // 2. Search using the HYDE hypothesis
-        var searchResultsHyde = await vectorSearchWithHyde.FindTopKChunks(question, 5);
+        var searchResultsHyde = await vectorSearchWithHyde.FindTopKChunks(question, 15);
         
         // 3. Combine results using Reciprocal Rank Fusion (RRF)
         var fusedResults = FuseSearchResults(searchResultsOriginal, searchResultsHyde);
@@ -52,13 +52,13 @@ URL:{chunk.SourcePageUrl}"))}
         var hydeHits = hyde.Select(chunk => new SearchHit(chunk.Id!, chunk.Score)).ToList();
         
         // Apply RRF fusion using actual scores
-        var fusedHits = HydeFusion.ReciprocalRankFusion([originalHits, hydeHits], 5);
+        var fusedHits = HydeFusion.ReciprocalRankFusion([originalHits, hydeHits], 10);
         
         // Map back to DocumentChunk objects
         var fusedChunkIds = fusedHits.Select(hit => hit.Id).ToHashSet();
         
         // Combine both result sets, prioritizing fused results
-        var allChunks = original.Concat(hyde).ToList();
+        var allChunks = original.Concat(hyde).DistinctBy(a => a.Id).ToList();
         return allChunks.Where(chunk => fusedChunkIds.Contains(chunk.Id!)).ToList();
     }
 }
