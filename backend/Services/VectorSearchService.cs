@@ -23,7 +23,8 @@ public class VectorSearchService(StringEmbeddingGenerator embeddingGenerator,
         {
             Vector = vector,
             TopK = (uint)k,
-            IncludeMetadata = true
+            IncludeMetadata = true,
+            IncludeValues = true,
         });
 
         var matches = (response.Matches ?? []).ToList();
@@ -32,14 +33,22 @@ public class VectorSearchService(StringEmbeddingGenerator embeddingGenerator,
 
         var ids = matches.Select(m => m.Id!).Where(id => !string.IsNullOrEmpty(id));
         var articles = contentStore.GetDocumentChunks(ids);
+        
+        var scoreById = matches.ToDictionary(m => m.Id!, m => new
+        {
+            m.Score,
+            Embedding = m.Values
+        });
 
-        var scoreById = matches.ToDictionary(m => m.Id!, m => m.Score);
-
-        var ordered = articles.OrderByDescending(a => scoreById.GetValueOrDefault(a.Id, 0f))
-                              .Take(k)
-                              .Select(a => a with { Score = scoreById.GetValueOrDefault(a.Id, 0f) ?? 0f })
-                              .ToList();
-
+        var ordered = articles.OrderByDescending(a => scoreById.GetValueOrDefault(a.Id, null)?.Score ?? 0f)
+            .Take(k)
+            .Select(a => a with
+            {
+                Score = scoreById.GetValueOrDefault(a.Id, null)?.Score ?? 0f,
+                Embeding = scoreById.GetValueOrDefault(a.Id, null)?.Embedding?.ToArray()
+            })
+            .ToList();
+        
         return ordered;
     }
 

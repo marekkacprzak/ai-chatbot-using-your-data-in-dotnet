@@ -10,7 +10,7 @@ public class RagQuestionService(
     PromptService promptService,
     VectorSearchServiceWithHyde vectorSearchWithHyde)
 {
-    public async Task<string> AnswerQuestion(string question)
+    public async Task<string> AnswerQuestionRrf(string question)
     {
         // 1. Search using the original question (for baseline)
         var searchResultsOriginal = await vectorSearch.FindTopKChunks(question, 15);
@@ -21,6 +21,40 @@ public class RagQuestionService(
         // 3. Combine results using Reciprocal Rank Fusion (RRF)
         var fusedResults = FuseSearchResults(searchResultsOriginal, searchResultsHyde);
         
+        return  await AnswerQuestion(question, fusedResults);
+    }
+    public async Task<string> AnswerQuestionMmr(string question)
+    {
+        // 1. Search using the original question (for baseline)
+        var searchResultsOriginal = await vectorSearch.FindTopKChunks(question, 15);
+        
+        // 2. Search using the HYDE hypothesis
+        var searchResultsHyde = await vectorSearchWithHyde.FindTopKChunks(question, 15);
+
+        var concatScoreAndEmbedingDictionary = searchResultsOriginal
+            .Concat(searchResultsHyde)
+            .DistinctBy(a => a.Id)
+            .ToDictionary(a => a.Id, a => new { a.Score, a.Embeding });
+        
+        var concatDocumentChunkDictionary = searchResultsOriginal
+            .Concat(searchResultsHyde)
+            .DistinctBy(a => a.Id)
+            .ToDictionary(a => a.Id, a => a);
+
+        var candidates = concatScoreAndEmbedingDictionary
+            .Select(a=> new SearchHit(Id: a.Key, Score: a.Value.Score))
+            .ToList();
+        
+        Func<string, string, double> docSim = (id1, id2) =>
+            HydeFusion.CosineSimilarity(concatScoreAndEmbedingDictionary[id1].Embeding!, concatScoreAndEmbedingDictionary[id2].Embeding!);
+        // Combine results using Maximal Marginal Relevance (MMR)
+        var mmrResults = HydeFusion.MaximalMarginalRelevance(candidates, docSim, 0.7f, 15);
+        var mmrContentResults = mmrResults.Select(a => concatDocumentChunkDictionary[a.Id]).ToList();
+        return  await AnswerQuestion(question, mmrContentResults);
+    }
+    
+    private async Task<string> AnswerQuestion(string question, List<DocumentChunk> fusedResults)
+    {
         // 4. Create the user prompt with fused results
         var systemPrompt = promptService.RagSystemPrompt;
 
@@ -44,7 +78,7 @@ URL:{chunk.SourcePageUrl}"))}
 
         return response.Text;
     }
-    
+
     private List<DocumentChunk> FuseSearchResults(List<DocumentChunk> original, List<DocumentChunk> hyde)
     {
         // Create SearchHit objects with actual scores for RRF

@@ -22,7 +22,8 @@ app.MapGet("/search", async (string query, VectorSearchService search) =>
 // GET /ask?question=...
 app.MapGet("/ask", async (string question, RagQuestionService rag) =>
 {
-    var result = await rag.AnswerQuestion(question);
+    //var result = await rag.AnswerQuestionRrf(question);
+    var result = await rag.AnswerQuestionMmr(question);
     return Results.Ok(result);
 });
 

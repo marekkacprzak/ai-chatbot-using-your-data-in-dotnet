@@ -91,4 +91,26 @@ public static class HydeFusion
 
         return selected;
     }
+    
+    public static float CosineSimilarity(float[] vectorA, float[] vectorB)
+    {
+        if (vectorA.Length != vectorB.Length)
+            throw new ArgumentException("Wektory muszą mieć tę samą długość");
+
+        float dotProduct = 0;
+        float normA = 0;
+        float normB = 0;
+
+        for (int i = 0; i < vectorA.Length; i++)
+        {
+            dotProduct += vectorA[i] * vectorB[i];
+            normA += vectorA[i] * vectorA[i];
+            normB += vectorB[i] * vectorB[i];
+        }
+
+        float denominator = (float)(Math.Sqrt(normA) * Math.Sqrt(normB));
+        if (denominator == 0) return 0; // wektory zerowe
+
+        return dotProduct / denominator;
+    }
 }

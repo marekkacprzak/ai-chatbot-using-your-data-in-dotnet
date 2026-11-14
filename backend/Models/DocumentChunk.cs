@@ -7,5 +7,6 @@ public record DocumentChunk(
     int ChunkIndex,
     string Content,
     string SourcePageUrl,
-    float Score
+    float Score,
+    float[]? Embeding = null
 );
