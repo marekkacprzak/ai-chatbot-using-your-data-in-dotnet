@@ -16,7 +16,6 @@ public class VectorSearchServiceWithHyde(
     PromptService promptService
 )
 {
-
     private async Task<string?> GenerateHypothesisAsync(string question)
     {
         var systemText = "You create concise, factual reference passages.";
@@ -69,10 +68,11 @@ public class VectorSearchServiceWithHyde(
         var articles = contentStore.GetDocumentChunks(ids);
 
         var scoreById = matches.Where(m => m.Id is not null)
-                               .ToDictionary(m => m.Id!, m => m.Score);
+                               .ToDictionary(m => m.Id!, m => (double)m.Score);
 
         var ordered = articles.OrderByDescending(a => scoreById.GetValueOrDefault(a.Id, 0f))
                               .Take(k)
+                              .Select(a => a with { Score = scoreById.GetValueOrDefault(a.Id, 0f) })
                               .ToList();
 
         return ordered;

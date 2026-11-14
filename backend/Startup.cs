@@ -61,6 +61,7 @@ static class Startup
 
         builder.Services.AddSingleton<WikipediaClient>();
         builder.Services.AddSingleton<IndexBuilder>();
+        builder.Services.AddSingleton<VectorSearchServiceWithHyde>();
         builder.Services.AddSingleton<RagQuestionService>();
         builder.Services.AddSingleton<ArticleSplitter>();
         builder.Services.AddSingleton<PromptService>();

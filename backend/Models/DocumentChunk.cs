@@ -6,5 +6,6 @@ public record DocumentChunk(
     string Section,
     int ChunkIndex,
     string Content,
-    string SourcePageUrl
+    string SourcePageUrl,
+    double Score
 );
