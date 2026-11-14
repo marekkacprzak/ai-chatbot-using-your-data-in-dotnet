@@ -33,12 +33,11 @@ public class VectorSearchService(StringEmbeddingGenerator embeddingGenerator,
         var ids = matches.Select(m => m.Id!).Where(id => !string.IsNullOrEmpty(id));
         var articles = contentStore.GetDocumentChunks(ids);
 
-        var scoreById = matches.Where(m => m.Id is not null)
-                               .ToDictionary(m => m.Id!, m => (double)m.Score);
+        var scoreById = matches.ToDictionary(m => m.Id!, m => m.Score);
 
         var ordered = articles.OrderByDescending(a => scoreById.GetValueOrDefault(a.Id, 0f))
                               .Take(k)
-                              .Select(a => a with { Score = scoreById.GetValueOrDefault(a.Id, 0f) })
+                              .Select(a => a with { Score = scoreById.GetValueOrDefault(a.Id, 0f) ?? 0f })
                               .ToList();
 
         return ordered;

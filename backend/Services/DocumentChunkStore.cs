@@ -68,7 +68,7 @@ ORDER BY {orderByCase};";
                 ChunkIndex: reader.GetInt32(3),
                 Content: reader.GetString(4),
                 SourcePageUrl: reader.GetString(5),
-                Score: 0.0
+                Score: 0.0f
             ));
         }
 

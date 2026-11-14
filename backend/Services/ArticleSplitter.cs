@@ -75,7 +75,7 @@ public class ArticleSplitter(int MaxTokensPerChunk = 300, int OverlapTokens = 60
             ChunkIndex: index + 1,
             Content: chunkContent.Trim(),
             SourcePageUrl: $"{pageUrl}#{Utils.ToUrlSafeId(section)}",
-            Score: 0.0
+            Score: 0.0f
         ));
 
     }

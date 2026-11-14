@@ -52,7 +52,7 @@ URL:{chunk.SourcePageUrl}"))}
         var hydeHits = hyde.Select(chunk => new SearchHit(chunk.Id!, chunk.Score)).ToList();
         
         // Apply RRF fusion using actual scores
-        var fusedHits = HydeFusion.ReciprocalRankFusion(new[] { originalHits, hydeHits }, 5);
+        var fusedHits = HydeFusion.ReciprocalRankFusion([originalHits, hydeHits], 5);
         
         // Map back to DocumentChunk objects
         var fusedChunkIds = fusedHits.Select(hit => hit.Id).ToHashSet();
