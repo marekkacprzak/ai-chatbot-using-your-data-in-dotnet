@@ -67,8 +67,7 @@ public class VectorSearchServiceWithHyde(
         var ids = matches.Select(m => m.Id!).Where(id => !string.IsNullOrEmpty(id));
         var articles = contentStore.GetDocumentChunks(ids);
 
-        var scoreById = matches.Where(m => m.Id is not null)
-                               .ToDictionary(m => m.Id!, m => m.Score);
+        var scoreById = matches.ToDictionary(m => m.Id!, m => m.Score);
 
         var ordered = articles.OrderByDescending(a => scoreById.GetValueOrDefault(a.Id, 0f))
                               .Take(k)
